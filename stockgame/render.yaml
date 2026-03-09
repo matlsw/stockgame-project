@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: stockgame
+    runtime: java
+    buildCommand: "./mvnw clean package -DskipTests"
+    startCommand: "java -jar target/stockgame-1.0.0.jar"
+    envVars:
+      - key: ALPHAVANTAGE_KEY
+        sync: false        # Wert wird manuell im Render-Dashboard eingetragen
+      - key: JWT_SECRET
+        generateValue: true  # Render generiert automatisch einen sicheren Wert

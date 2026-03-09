@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockGame – Anmelden</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-container">
+    <div class="auth-logo">
+        <span class="logo-icon">📈</span>
+        <h1>StockGame</h1>
+        <p>Lerne Investieren – Ohne Risiko</p>
+    </div>
+
+    <div class="auth-tabs">
+        <button class="tab-btn active" onclick="showTab('login')">Anmelden</button>
+        <button class="tab-btn" onclick="showTab('register')">Registrieren</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="login-form" class="auth-form">
+        <div class="form-group">
+            <label>Benutzername</label>
+            <input type="text" id="login-username" placeholder="dein_username" />
+        </div>
+        <div class="form-group">
+            <label>Passwort</label>
+            <input type="password" id="login-password" placeholder="••••••••" />
+        </div>
+        <div id="login-error" class="error-msg hidden"></div>
+        <button class="btn-primary" onclick="login()">Anmelden</button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="register-form" class="auth-form hidden">
+        <div class="form-group">
+            <label>Benutzername</label>
+            <input type="text" id="reg-username" placeholder="dein_username" />
+        </div>
+        <div class="form-group">
+            <label>E-Mail</label>
+            <input type="email" id="reg-email" placeholder="name@email.com" />
+        </div>
+        <div class="form-group">
+            <label>Passwort</label>
+            <input type="password" id="reg-password" placeholder="••••••••" />
+        </div>
+        <div id="reg-error" class="error-msg hidden"></div>
+        <div id="reg-success" class="success-msg hidden"></div>
+        <button class="btn-primary" onclick="register()">Konto erstellen</button>
+        <p class="start-balance">🎉 Du startest mit <strong>$10.000 Spielgeld!</strong></p>
+    </div>
+</div>
+
+<script>
+    // Wenn bereits eingeloggt → weiterleiten
+    if (localStorage.getItem('token')) {
+        window.location.href = '/dashboard.html';
+    }
+
+    function showTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+
+        if (tab === 'login') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('login-form').classList.remove('hidden');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('register-form').classList.remove('hidden');
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+        const errorEl = document.getElementById('login-error');
+
+        if (!username || !password) {
+            showError(errorEl, 'Bitte alle Felder ausfüllen');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(errorEl, data.error);
+                return;
+            }
+
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('username', data.username);
+            window.location.href = '/dashboard.html';
+
+        } catch (e) {
+            showError(errorEl, 'Verbindungsfehler');
+        }
+    }
+
+    async function register() {
+        const username = document.getElementById('reg-username').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const errorEl = document.getElementById('reg-error');
+        const successEl = document.getElementById('reg-success');
+
+        if (!username || !email || !password) {
+            showError(errorEl, 'Bitte alle Felder ausfüllen');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(errorEl, data.error);
+                return;
+            }
+
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('username', data.username);
+            window.location.href = '/dashboard.html';
+
+        } catch (e) {
+            showError(errorEl, 'Verbindungsfehler');
+        }
+    }
+
+    function showError(el, msg) {
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    // Enter-Taste
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            const loginVisible = !document.getElementById('login-form').classList.contains('hidden');
+            if (loginVisible) login(); else register();
+        }
+    });
+</script>
+</body>
+</html>

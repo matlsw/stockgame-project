@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockGame</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="dashboard-page">
+
+<nav class="navbar">
+    <div class="nav-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        StockGame
+    </div>
+    <div class="nav-links">
+        <button class="nav-btn active" onclick="showSection('market')">Markt</button>
+        <button class="nav-btn" onclick="showSection('portfolio')">Portfolio</button>
+        <button class="nav-btn" onclick="showSection('history')">Verlauf</button>
+    </div>
+    <div class="nav-right">
+        <div class="nav-balance-chip">
+            <span class="balance-label">Kapital</span>
+            <span id="nav-balance" class="balance-value">$10,000.00</span>
+        </div>
+        <div class="nav-user-chip">
+            <div class="user-avatar" id="user-avatar">M</div>
+            <span id="nav-username"></span>
+        </div>
+        <button class="btn-logout" onclick="logout()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+    </div>
+</nav>
+
+<!-- MARKT SECTION -->
+<section id="section-market" class="section">
+    <div class="market-layout">
+
+        <!-- Linke Spalte: Aktienliste -->
+        <div class="stock-list-panel">
+            <div class="panel-header">
+                <h2>Markt</h2>
+                <div class="search-wrap">
+                    <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="search-input" placeholder="Symbol oder Name..." />
+                </div>
+            </div>
+
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="setFilter('popular', this)">Beliebt</button>
+                <button class="filter-tab" onclick="setFilter('gainers', this)">Gewinner</button>
+                <button class="filter-tab" onclick="setFilter('losers', this)">Verlierer</button>
+            </div>
+
+            <div id="stock-list" class="stock-list">
+                <div class="list-loading">
+                    <div class="spinner"></div>
+                    <span>Kurse werden geladen…</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rechte Spalte: Detail + Trade -->
+        <div class="stock-detail-panel" id="stock-detail-panel">
+            <!-- Placeholder wenn nichts ausgewählt -->
+            <div class="detail-placeholder" id="detail-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <p>Wähle eine Aktie aus der Liste</p>
+            </div>
+
+            <!-- Detail View -->
+            <div id="stock-detail" class="stock-detail hidden">
+                <div class="detail-top">
+                    <div class="detail-identity">
+                        <div class="detail-logo" id="detail-logo">A</div>
+                        <div>
+                            <div class="detail-symbol-row">
+                                <h2 id="detail-symbol"></h2>
+                                <span class="detail-exchange">NASDAQ</span>
+                            </div>
+                            <p id="detail-name"></p>
+                        </div>
+                    </div>
+                    <div class="detail-price-block">
+                        <div id="detail-price" class="detail-price"></div>
+                        <div id="detail-change" class="detail-change"></div>
+                    </div>
+                </div>
+
+                <!-- Sparkline Chart -->
+                <div class="chart-container">
+                    <canvas id="detail-chart" height="120"></canvas>
+                    <div class="chart-loading hidden" id="chart-loading">
+                        <div class="spinner small"></div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item"><span class="stat-label">Eröffnung</span><span class="stat-val" id="stat-open"></span></div>
+                    <div class="stat-item"><span class="stat-label">Tageshoch</span><span class="stat-val green" id="stat-high"></span></div>
+                    <div class="stat-item"><span class="stat-label">Tagestief</span><span class="stat-val red" id="stat-low"></span></div>
+                    <div class="stat-item"><span class="stat-label">Volumen</span><span class="stat-val" id="stat-volume"></span></div>
+                </div>
+
+                <!-- Trade Panel -->
+                <div class="trade-panel">
+                    <div class="trade-header">
+                        <span>Handeln</span>
+                        <div class="qty-control">
+                            <button onclick="adjustQty(-1)">−</button>
+                            <input type="number" id="trade-qty" value="1" min="1" />
+                            <button onclick="adjustQty(1)">+</button>
+                        </div>
+                    </div>
+                    <div class="trade-cost-row">
+                        <span>Gesamtkosten</span>
+                        <strong id="trade-total">$0.00</strong>
+                    </div>
+                    <div class="trade-btns">
+                        <button class="btn-buy" onclick="executeTrade('buy')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Kaufen
+                        </button>
+                        <button class="btn-sell" onclick="executeTrade('sell')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Verkaufen
+                        </button>
+                    </div>
+                    <div id="trade-message" class="trade-message hidden"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- PORTFOLIO SECTION -->
+<section id="section-portfolio" class="section hidden">
+    <div class="section-inner">
+        <h2 class="section-title">Portfolio</h2>
+        <div class="portfolio-summary">
+            <div class="summary-card green-card">
+                <label>Verfügbares Kapital</label>
+                <span id="port-balance" class="big-number">$0.00</span>
+            </div>
+            <div class="summary-card">
+                <label>Investiert</label>
+                <span id="port-invested" class="big-number">$0.00</span>
+            </div>
+            <div class="summary-card">
+                <label>Gesamtwert</label>
+                <span id="port-current" class="big-number">$0.00</span>
+            </div>
+            <div class="summary-card">
+                <label>Gewinn/Verlust</label>
+                <span id="port-pnl" class="big-number">$0.00</span>
+            </div>
+        </div>
+        <div id="portfolio-list" class="table-wrap">
+            <p class="empty-msg">Noch keine Aktien im Portfolio</p>
+        </div>
+    </div>
+</section>
+
+<!-- HISTORY SECTION -->
+<section id="section-history" class="section hidden">
+    <div class="section-inner">
+        <h2 class="section-title">Transaktionsverlauf</h2>
+        <div id="history-list" class="table-wrap">
+            <p class="empty-msg">Noch keine Transaktionen</p>
+        </div>
+    </div>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/js/app.js"></script>
+</body>
+</html>
