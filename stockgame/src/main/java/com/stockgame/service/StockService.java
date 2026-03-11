@@ -3,9 +3,12 @@ package com.stockgame.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stockgame.dto.StockQuote;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,40 +16,37 @@ import java.util.List;
 @Service
 public class StockService {
 
-    @Value("${alphavantage.api.key}")
-    private String apiKey;
-
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private static final String BASE_URL = "https://www.alphavantage.co/query";
+    private static final String BASE_URL = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
+    private static final String INTRADAY_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
 
-    /**
-     * Aktuellen Kurs einer Aktie abrufen (Global Quote)
-     */
     public StockQuote getQuote(String symbol) {
         try {
-            String url = BASE_URL + "?function=GLOBAL_QUOTE&symbol=" + symbol + "&apikey=" + apiKey;
-            String response = restTemplate.getForObject(url, String.class);
-            JsonNode root = mapper.readTree(response);
-            JsonNode quote = root.get("Global Quote");
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            if (quote == null || quote.isEmpty()) {
-                throw new RuntimeException("Aktie nicht gefunden: " + symbol + " | Response: " + response);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    BASE_URL + symbol, HttpMethod.GET, entity, String.class);
+
+            JsonNode root = mapper.readTree(response.getBody());
+            JsonNode result = root.path("quoteResponse").path("result");
+
+            if (result.isEmpty()) {
+                throw new RuntimeException("Aktie nicht gefunden: " + symbol);
             }
 
-            double price = Double.parseDouble(quote.get("05. price").asText());
-            double change = Double.parseDouble(quote.get("09. change").asText());
-            double changePercent = Double.parseDouble(
-                quote.get("10. change percent").asText().replace("%", "")
-            );
-            double open = Double.parseDouble(quote.get("02. open").asText());
-            double high = Double.parseDouble(quote.get("03. high").asText());
-            double low = Double.parseDouble(quote.get("04. low").asText());
-            long volume = Long.parseLong(quote.get("06. volume").asText());
-
-            // Firmenname über SYMBOL_SEARCH holen (oder hardcoded Map)
-            String name = getCompanyName(symbol);
+            JsonNode q = result.get(0);
+            double price = q.path("regularMarketPrice").asDouble();
+            double change = q.path("regularMarketChange").asDouble();
+            double changePercent = q.path("regularMarketChangePercent").asDouble();
+            double open = q.path("regularMarketOpen").asDouble();
+            double high = q.path("regularMarketDayHigh").asDouble();
+            double low = q.path("regularMarketDayLow").asDouble();
+            long volume = q.path("regularMarketVolume").asLong();
+            String name = q.path("longName").asText(symbol);
 
             return new StockQuote(symbol.toUpperCase(), name, price, change, changePercent, open, high, low, volume);
 
@@ -55,85 +55,55 @@ public class StockService {
         }
     }
 
-
-    /**
-     * Intraday-Daten fuer Sparkline-Chart
-     */
     public List<Double> getIntradayPrices(String symbol) {
         try {
-            String url = BASE_URL + "?function=TIME_SERIES_INTRADAY&symbol=" + symbol
-                    + "&interval=60min&outputsize=compact&apikey=" + apiKey;
-            String response = restTemplate.getForObject(url, String.class);
-            JsonNode root = mapper.readTree(response);
-            JsonNode series = root.get("Time Series (60min)");
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            if (series == null) return java.util.List.of();
+            ResponseEntity<String> response = restTemplate.exchange(
+                    INTRADAY_URL + symbol + "?interval=60m&range=1d", HttpMethod.GET, entity, String.class);
+
+            JsonNode root = mapper.readTree(response.getBody());
+            JsonNode closes = root.path("chart").path("result").get(0)
+                    .path("indicators").path("quote").get(0).path("close");
 
             List<Double> prices = new ArrayList<>();
-            int count = 0;
-            for (JsonNode entry : series) {
-                prices.add(0, entry.get("4. close").asDouble());
-                if (++count >= 8) break;
+            for (JsonNode val : closes) {
+                if (!val.isNull()) prices.add(val.asDouble());
             }
             return prices;
         } catch (Exception e) {
-            return java.util.List.of();
+            return List.of();
         }
     }
 
-    /**
-     * Aktiensuche nach Name oder Symbol
-     */
     public List<StockQuote> searchStocks(String query) {
         List<StockQuote> results = new ArrayList<>();
         try {
-            String url = BASE_URL + "?function=SYMBOL_SEARCH&keywords=" + query + "&apikey=" + apiKey;
-            String response = restTemplate.getForObject(url, String.class);
-            JsonNode root = mapper.readTree(response);
-            JsonNode matches = root.get("bestMatches");
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            if (matches != null) {
-                for (JsonNode match : matches) {
-                    String symbol = match.get("1. symbol").asText();
-                    String name = match.get("2. name").asText();
-                    // Nur US-Aktien (region = United States)
-                    String region = match.get("4. region").asText();
-                    if ("United States".equals(region)) {
-                        StockQuote sq = new StockQuote();
-                        sq.setSymbol(symbol);
-                        sq.setName(name);
-                        results.add(sq);
-                    }
-                    if (results.size() >= 8) break;
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://query1.finance.yahoo.com/v1/finance/search?q=" + query + "&quotesCount=8&lang=en-US",
+                    HttpMethod.GET, entity, String.class);
+
+            JsonNode root = mapper.readTree(response.getBody());
+            JsonNode quotes = root.path("quotes");
+
+            for (JsonNode match : quotes) {
+                if ("EQUITY".equals(match.path("quoteType").asText())) {
+                    StockQuote sq = new StockQuote();
+                    sq.setSymbol(match.path("symbol").asText());
+                    sq.setName(match.path("longname").asText(match.path("shortname").asText()));
+                    results.add(sq);
                 }
+                if (results.size() >= 8) break;
             }
         } catch (Exception e) {
             throw new RuntimeException("Suchfehler: " + e.getMessage());
         }
         return results;
-    }
-
-    /**
-     * Firmenname aus bekannten Symbolen — Fallback wenn keine extra API-Calls nötig
-     */
-    private String getCompanyName(String symbol) {
-        return switch (symbol.toUpperCase()) {
-            case "AAPL" -> "Apple Inc.";
-            case "MSFT" -> "Microsoft Corp.";
-            case "GOOGL" -> "Alphabet Inc.";
-            case "AMZN" -> "Amazon.com Inc.";
-            case "TSLA" -> "Tesla Inc.";
-            case "META" -> "Meta Platforms Inc.";
-            case "NVDA" -> "NVIDIA Corp.";
-            case "NFLX" -> "Netflix Inc.";
-            case "AMD" -> "Advanced Micro Devices";
-            case "INTC" -> "Intel Corp.";
-            case "JPM" -> "JPMorgan Chase";
-            case "BAC" -> "Bank of America";
-            case "DIS" -> "The Walt Disney Co.";
-            case "SPOT" -> "Spotify Technology";
-            case "UBER" -> "Uber Technologies";
-            default -> symbol;
-        };
     }
 }
