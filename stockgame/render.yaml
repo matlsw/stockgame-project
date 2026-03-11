@@ -1,11 +1,28 @@
+databases:
+  - name: stockgame-db
+    databaseName: stockgame
+    user: stockgame
+
 services:
   - type: web
-    name: stockgame
-    runtime: java
-    buildCommand: "./mvnw clean package -DskipTests"
-    startCommand: "java -jar target/stockgame-1.0.0.jar"
+    name: stockgame-project
+    runtime: docker
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stockgame-db
+          property: connectionString
+      - key: DB_USER
+        fromDatabase:
+          name: stockgame-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: stockgame-db
+          property: password
       - key: ALPHAVANTAGE_KEY
-        sync: false        # Wert wird manuell im Render-Dashboard eingetragen
+        sync: false
       - key: JWT_SECRET
-        generateValue: true  # Render generiert automatisch einen sicheren Wert
+        generateValue: true
+      - key: H2_CONSOLE
+        value: "false"

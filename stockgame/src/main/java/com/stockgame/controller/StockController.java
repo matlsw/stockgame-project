@@ -1,6 +1,7 @@
 package com.stockgame.controller;
 
 import com.stockgame.dto.StockQuote;
+import com.stockgame.service.StockCacheService;
 import com.stockgame.service.StockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,12 +15,15 @@ import java.util.Map;
 public class StockController {
 
     @Autowired
+    private StockCacheService cacheService;
+
+    @Autowired
     private StockService stockService;
 
     @GetMapping("/quote/{symbol}")
     public ResponseEntity<?> getQuote(@PathVariable String symbol) {
         try {
-            StockQuote quote = stockService.getQuote(symbol);
+            StockQuote quote = cacheService.getQuote(symbol);
             return ResponseEntity.ok(quote);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -35,13 +39,14 @@ public class StockController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
     @GetMapping("/intraday/{symbol}")
     public ResponseEntity<?> getIntraday(@PathVariable String symbol) {
         try {
             var prices = stockService.getIntradayPrices(symbol);
             return ResponseEntity.ok(prices);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

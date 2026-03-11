@@ -78,21 +78,60 @@ async function loadBalance() {
 // ===== STOCK LIST =====
 async function loadStockList() {
     const listEl = document.getElementById('stock-list');
-    listEl.innerHTML = '<div class="list-loading"><div class="spinner"></div><span>Kurse werden geladen…</span></div>';
 
-    // Alle Aktien nacheinander laden (API Rate Limit beachten)
-    allStocks = [];
-    for (const s of POPULAR_STOCKS) {
+    // Alle Aktien erst als Placeholder anzeigen
+    allStocks = POPULAR_STOCKS.map(s => ({
+        symbol: s.symbol, name: s.name, emoji: s.emoji,
+        price: 0, change: 0, changePercent: 0, loading: true
+    }));
+    renderStockList(allStocks);
+
+    // Nacheinander laden mit 13s Delay (Alpha Vantage: max 5/min = 12s pro Request)
+    for (let i = 0; i < POPULAR_STOCKS.length; i++) {
+        const s = POPULAR_STOCKS[i];
+
+        // Countdown in der Liste anzeigen
+        const itemEl = document.getElementById('item-' + s.symbol);
+        if (itemEl) {
+            const priceEl = itemEl.querySelector('.price');
+            if (priceEl) priceEl.textContent = 'Laden…';
+        }
+
         const data = await api('/api/stocks/quote/' + s.symbol);
+
         if (data && !data.error) {
-            allStocks.push({ ...data, emoji: s.emoji });
-        } else {
-            // Fallback mit Placeholder-Daten
-            allStocks.push({ symbol: s.symbol, name: s.name, emoji: s.emoji, price: 0, change: 0, changePercent: 0 });
+            allStocks[i] = { ...data, emoji: s.emoji };
+        }
+
+        // Einzelne Zeile sofort updaten ohne alles neu zu rendern
+        updateStockListItem(allStocks[i]);
+
+        // Warten zwischen Requests (außer beim letzten)
+        if (i < POPULAR_STOCKS.length - 1) {
+            await sleep(13000);
         }
     }
+}
 
-    renderStockList(allStocks);
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function updateStockListItem(s) {
+    const itemEl = document.getElementById('item-' + s.symbol);
+    if (!itemEl) return;
+
+    const isPos = s.change >= 0;
+    const sign = isPos ? '+' : '';
+
+    const priceEl = itemEl.querySelector('.price');
+    const changeEl = itemEl.querySelector('.change');
+
+    if (priceEl) priceEl.textContent = s.price > 0 ? formatCurrency(s.price) : '—';
+    if (changeEl) {
+        changeEl.textContent = s.price > 0 ? sign + s.changePercent.toFixed(2) + '%' : '—';
+        changeEl.className = 'change ' + (isPos ? 'pos' : 'neg');
+    }
+
+    if (s.price > 0) drawMiniChart(s);
 }
 
 function renderStockList(stocks) {
