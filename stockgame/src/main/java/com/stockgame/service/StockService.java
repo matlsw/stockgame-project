@@ -32,7 +32,7 @@ public class StockService {
             JsonNode quote = root.get("Global Quote");
 
             if (quote == null || quote.isEmpty()) {
-                throw new RuntimeException("Aktie nicht gefunden: " + symbol);
+                throw new RuntimeException("Aktie nicht gefunden: " + symbol + " | Response: " + response);
             }
 
             double price = Double.parseDouble(quote.get("05. price").asText());
