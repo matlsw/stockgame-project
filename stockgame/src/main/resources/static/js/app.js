@@ -77,20 +77,15 @@ async function loadBalance() {
 
 // ===== STOCK LIST =====
 async function loadStockList() {
-    const listEl = document.getElementById('stock-list');
-
-    // Alle Aktien erst als Placeholder anzeigen
     allStocks = POPULAR_STOCKS.map(s => ({
         symbol: s.symbol, name: s.name, emoji: s.emoji,
         price: 0, change: 0, changePercent: 0, loading: true
     }));
     renderStockList(allStocks);
 
-    // Nacheinander laden mit 13s Delay (Alpha Vantage: max 5/min = 12s pro Request)
     for (let i = 0; i < POPULAR_STOCKS.length; i++) {
         const s = POPULAR_STOCKS[i];
 
-        // Countdown in der Liste anzeigen
         const itemEl = document.getElementById('item-' + s.symbol);
         if (itemEl) {
             const priceEl = itemEl.querySelector('.price');
@@ -103,10 +98,8 @@ async function loadStockList() {
             allStocks[i] = { ...data, emoji: s.emoji };
         }
 
-        // Einzelne Zeile sofort updaten ohne alles neu zu rendern
         updateStockListItem(allStocks[i]);
 
-        // Warten zwischen Requests (außer beim letzten)
         if (i < POPULAR_STOCKS.length - 1) {
             await sleep(13000);
         }
@@ -157,7 +150,6 @@ function renderStockList(stocks) {
         </div>`;
     }).join('');
 
-    // Mini-Sparklines zeichnen (aus OHLC schätzen)
     stocks.forEach(s => drawMiniChart(s));
 }
 
@@ -167,11 +159,9 @@ function drawMiniChart(stock) {
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
 
-    // Einfache Trendlinie aus open → close mit high/low
     const isPos = stock.change >= 0;
     const color = isPos ? '#4ade80' : '#f87171';
 
-    // 5 Punkte: open, low, high, (open+close)/2, close
     const open = stock.open || stock.price - stock.change;
     const close = stock.price;
     const high = stock.high || Math.max(open, close) * 1.002;
@@ -186,7 +176,6 @@ function drawMiniChart(stock) {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Gradient fill
     const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, color + '30');
     grad.addColorStop(1, color + '00');
@@ -203,7 +192,6 @@ function drawMiniChart(stock) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Line
     ctx.beginPath();
     ctx.moveTo(xs[0], ys[0]);
     for (let i = 1; i < xs.length; i++) {
@@ -231,13 +219,11 @@ async function onSearchInput() {
     const q = document.getElementById('search-input').value.trim();
     if (!q) { renderStockList(allStocks); return; }
 
-    // Lokale Filterung zuerst
     const local = allStocks.filter(s =>
         s.symbol.includes(q.toUpperCase()) || s.name.toLowerCase().includes(q.toLowerCase())
     );
     if (local.length) { renderStockList(local); return; }
 
-    // API Suche
     const data = await api('/api/stocks/search?q=' + encodeURIComponent(q));
     if (!data || data.error || !data.length) return;
 
@@ -246,11 +232,19 @@ async function onSearchInput() {
         price: 0, change: 0, changePercent: 0
     }));
     renderStockList(results);
+
+    // Preise für Suchergebnisse laden (max 3 damit kein Rate Limit)
+    for (let i = 0; i < Math.min(results.length, 3); i++) {
+        const quote = await api('/api/stocks/quote/' + results[i].symbol);
+        if (quote && !quote.error) {
+            results[i] = { ...results[i], ...quote };
+            updateStockListItem(results[i]);
+        }
+    }
 }
 
 // ===== DETAIL VIEW =====
 async function loadQuote(symbol) {
-    // Active state in list
     document.querySelectorAll('.stock-item').forEach(el => el.classList.remove('active'));
     const item = document.getElementById('item-' + symbol);
     if (item) item.classList.add('active');
@@ -261,22 +255,26 @@ async function loadQuote(symbol) {
     stopLiveRefresh();
     currentSymbol = symbol;
 
-    // Aus gecachtem allStocks laden wenn verfügbar
+    // Gecachtes sofort anzeigen wenn verfügbar
     const cached = allStocks.find(s => s.symbol === symbol);
     if (cached && cached.price > 0) renderDetail(cached);
 
-    // Trotzdem frisch laden
+    // Frisch laden
     const data = await api('/api/stocks/quote/' + symbol);
     if (data && !data.error) {
         currentPrice = data.price;
-        // Emoji aus config holen
         const cfg = POPULAR_STOCKS.find(s => s.symbol === symbol);
         data.emoji = cfg ? cfg.emoji : '📈';
         renderDetail(data);
+
+        // Suchergebnis auch in allStocks speichern
+        const idx = allStocks.findIndex(s => s.symbol === symbol);
+        if (idx >= 0) allStocks[idx] = { ...data };
+        else allStocks.push({ ...data });
+
         startLiveRefresh();
     }
 
-    // Sparkline laden
     loadDetailChart(symbol);
 }
 
@@ -308,7 +306,6 @@ async function loadDetailChart(symbol) {
     document.getElementById('chart-loading').classList.add('hidden');
 
     if (!prices || !prices.length) {
-        // Fallback: OHLC-basierter Chart
         const cached = allStocks.find(s => s.symbol === symbol);
         if (cached) drawDetailChart(generateFallbackPrices(cached));
         return;
@@ -317,7 +314,6 @@ async function loadDetailChart(symbol) {
 }
 
 function generateFallbackPrices(stock) {
-    // 8 Punkte zwischen open und close interpolieren
     const open = stock.open || stock.price - stock.change;
     const close = stock.price;
     const points = [];
@@ -350,7 +346,6 @@ function drawDetailChart(prices) {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Gradient fill
     const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, color + '25');
     grad.addColorStop(1, color + '00');
@@ -367,7 +362,6 @@ function drawDetailChart(prices) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Line
     ctx.beginPath();
     ctx.moveTo(xs[0], ys[0]);
     for (let i = 1; i < xs.length; i++) {
@@ -378,7 +372,6 @@ function drawDetailChart(prices) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Preis-Labels
     ctx.fillStyle = '#64748b';
     ctx.font = '10px DM Mono, monospace';
     ctx.textAlign = 'right';
@@ -464,13 +457,11 @@ async function refreshQuietly(symbol) {
     data.emoji = cfg ? cfg.emoji : '📈';
     renderDetail(data);
 
-    // Preis aufleuchten
     const priceEl = document.getElementById('detail-price');
     priceEl.style.transition = 'color 0.4s';
     priceEl.style.color = wasHigher ? 'var(--green)' : 'var(--red)';
     setTimeout(() => { priceEl.style.color = ''; }, 1200);
 
-    // Mini-Chart in Liste aktualisieren
     const idx = allStocks.findIndex(s => s.symbol === symbol);
     if (idx >= 0) {
         allStocks[idx] = { ...data, emoji: data.emoji };
