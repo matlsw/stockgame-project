@@ -23,8 +23,38 @@ public class StockController {
     @GetMapping("/quote/{symbol}")
     public ResponseEntity<?> getQuote(@PathVariable String symbol) {
         try {
-            StockQuote quote = cacheService.getQuote(symbol);
+            StockQuote quote = cacheService.getQuote(symbol.toUpperCase());
             return ResponseEntity.ok(quote);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/intraday/{symbol}")
+    public ResponseEntity<?> getIntraday(@PathVariable String symbol) {
+        try {
+            List<Double> prices = stockService.getIntradayPrices(symbol.toUpperCase());
+            return ResponseEntity.ok(prices);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/candles/{symbol}")
+    public ResponseEntity<?> getCandles(@PathVariable String symbol) {
+        try {
+            List<StockService.CandleData> candles = stockService.getCandleData(symbol.toUpperCase());
+            return ResponseEntity.ok(candles);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/dividends/{symbol}")
+    public ResponseEntity<?> getDividends(@PathVariable String symbol) {
+        try {
+            Map<String, Object> data = stockService.getDividends(symbol.toUpperCase());
+            return ResponseEntity.ok(data);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -35,16 +65,6 @@ public class StockController {
         try {
             List<StockQuote> results = stockService.searchStocks(q);
             return ResponseEntity.ok(results);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    @GetMapping("/intraday/{symbol}")
-    public ResponseEntity<?> getIntraday(@PathVariable String symbol) {
-        try {
-            var prices = stockService.getIntradayPrices(symbol);
-            return ResponseEntity.ok(prices);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

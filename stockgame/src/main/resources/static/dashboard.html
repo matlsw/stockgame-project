@@ -90,8 +90,16 @@
                     </div>
                 </div>
 
-                <!-- Sparkline Chart -->
+                <!-- Chart mit Toggle -->
                 <div class="chart-container">
+                    <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+                        <button id="chart-toggle-btn" onclick="toggleChartMode()"
+                                style="background:var(--card2);border:1px solid var(--border);color:var(--text);
+                                   padding:4px 12px;border-radius:6px;cursor:pointer;font-size:0.8rem;
+                                   font-family:inherit">
+                            🕯 Kerzen
+                        </button>
+                    </div>
                     <canvas id="detail-chart" height="120"></canvas>
                     <div class="chart-loading hidden" id="chart-loading">
                         <div class="spinner small"></div>
@@ -131,6 +139,13 @@
                     </div>
                     <div id="trade-message" class="trade-message hidden"></div>
                 </div>
+
+                <!-- Dividenden & Fundamentaldaten -->
+                <div id="dividends-section"
+                     style="margin-top:16px;padding:16px;background:var(--card2);
+                           border-radius:12px;border:1px solid var(--border)">
+                </div>
+
             </div>
         </div>
 
