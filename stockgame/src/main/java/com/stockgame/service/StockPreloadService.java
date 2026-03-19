@@ -19,8 +19,6 @@ import java.util.List;
  * und aktualisiert sie alle 55 Sekunden automatisch.
  */
 @Service
-@EnableAsync
-@EnableScheduling
 public class StockPreloadService {
 
     private static final Logger log = LoggerFactory.getLogger(StockPreloadService.class);
