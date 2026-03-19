@@ -23,6 +23,7 @@ public class StockController {
     @GetMapping("/quote/{symbol}")
     public ResponseEntity<?> getQuote(@PathVariable String symbol) {
         try {
+            // Cache-first: sofort antworten wenn frischer Eintrag vorhanden
             StockQuote quote = cacheService.getQuote(symbol.toUpperCase());
             return ResponseEntity.ok(quote);
         } catch (Exception e) {
@@ -33,7 +34,7 @@ public class StockController {
     @GetMapping("/intraday/{symbol}")
     public ResponseEntity<?> getIntraday(@PathVariable String symbol) {
         try {
-            List<Double> prices = stockService.getIntradayPrices(symbol.toUpperCase());
+            List<Double> prices = cacheService.getIntraday(symbol.toUpperCase());
             return ResponseEntity.ok(prices);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -43,7 +44,7 @@ public class StockController {
     @GetMapping("/candles/{symbol}")
     public ResponseEntity<?> getCandles(@PathVariable String symbol) {
         try {
-            List<StockService.CandleData> candles = stockService.getCandleData(symbol.toUpperCase());
+            List<StockService.CandleData> candles = cacheService.getCandles(symbol.toUpperCase());
             return ResponseEntity.ok(candles);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -68,5 +69,14 @@ public class StockController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** Cache-Status für Monitoring/Debug */
+    @GetMapping("/cache/status")
+    public ResponseEntity<?> cacheStatus() {
+        return ResponseEntity.ok(Map.of(
+                "cachedQuotes", cacheService.cachedQuoteCount(),
+                "status", "ok"
+        ));
     }
 }

@@ -94,7 +94,7 @@ async function loadStockList() {
         if (data && !data.error) allStocks[i] = { ...data, emoji: s.emoji };
         updateStockListItem(allStocks[i]);
 
-        if (i < POPULAR_STOCKS.length - 1) await sleep(13000);
+        if (i < POPULAR_STOCKS.length - 1) await sleep(1500);
     }
 }
 
